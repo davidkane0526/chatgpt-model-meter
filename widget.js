@@ -643,12 +643,35 @@
     reset.textContent = formatCountdown(windowData, primary);
   }
 
+  function classifyRateLimitWindows(rateLimit) {
+    const windows = [rateLimit?.primary_window, rateLimit?.secondary_window].filter(Boolean);
+    let fiveHour = null;
+    let weekly = null;
+
+    for (const windowData of windows) {
+      const seconds = Number(windowData?.limit_window_seconds);
+      if (seconds === 18_000) fiveHour = windowData;
+      else if (seconds === 604_800) weekly = windowData;
+    }
+
+    // Older responses historically used primary=5h and secondary=7d.
+    // Only fall back to slot order when duration metadata is absent altogether.
+    const hasDurationMetadata = windows.some((w) => Number.isFinite(Number(w?.limit_window_seconds)));
+    if (!hasDurationMetadata) {
+      fiveHour = rateLimit?.primary_window || null;
+      weekly = rateLimit?.secondary_window || null;
+    }
+
+    return { fiveHour, weekly };
+  }
+
   function render() {
     if (!widget || !fiveHourValue || !weeklyValue) return;
 
     const rateLimit = payload?.rate_limit;
-    setRow(fiveHourValue, rateLimit?.primary_window, true);
-    setRow(weeklyValue, rateLimit?.secondary_window, false);
+    const { fiveHour, weekly } = classifyRateLimitWindows(rateLimit);
+    setRow(fiveHourValue, fiveHour, true);
+    setRow(weeklyValue, weekly, false);
 
     widget.classList.toggle('yy-cum-error', Boolean(lastError && !payload));
     if (payload) {
