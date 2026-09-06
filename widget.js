@@ -33,6 +33,7 @@
   let weeklyValue = null;
   let settingsPanel = null;
   let settingsButton = null;
+  let autoHideCloseTimer = 0;
   let currentSettings = { ...DEFAULT_SETTINGS };
 
   function clamp(value, min, max) {
@@ -468,6 +469,18 @@
         line-height: 1.2;
       }
 
+      /* 面板和主卡片之间保留 8px 视觉间距，但用透明命中区桥起来，
+         避免鼠标穿过缝隙时触发 auto-hide。 */
+      #${WIDGET_ID} .yy-cum-settings-panel::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -9px;
+        height: 9px;
+        pointer-events: auto;
+      }
+
       #${WIDGET_ID}[data-theme="dark"] .yy-cum-settings-panel {
         border-color: rgba(255,255,255,.14);
         background: rgba(36,36,36,.98);
@@ -602,12 +615,29 @@
       requestUsage(true);
     });
 
-    root.addEventListener('mouseleave', () => {
+    const cancelAutoHideClose = () => {
+      if (!autoHideCloseTimer) return;
+      clearTimeout(autoHideCloseTimer);
+      autoHideCloseTimer = 0;
+    };
+
+    const scheduleAutoHideClose = () => {
       if (!currentSettings.defaultHidden || !settingsPanel || settingsPanel.hidden) return;
-      settingsPanel.hidden = true;
-      settingsButton?.setAttribute('aria-expanded', 'false');
-      root.classList.remove('yy-cum-settings-open');
-    });
+      cancelAutoHideClose();
+      autoHideCloseTimer = setTimeout(() => {
+        autoHideCloseTimer = 0;
+        // 给鼠标穿过主卡片和设置面板之间的视觉缝隙留一点容错。
+        if (root.matches(':hover') || settingsPanel.matches(':hover')) return;
+        settingsPanel.hidden = true;
+        settingsButton?.setAttribute('aria-expanded', 'false');
+        root.classList.remove('yy-cum-settings-open');
+      }, 180);
+    };
+
+    root.addEventListener('mouseleave', scheduleAutoHideClose);
+    root.addEventListener('mouseenter', cancelAutoHideClose);
+    settingsPanel.addEventListener('mouseenter', cancelAutoHideClose);
+    settingsPanel.addEventListener('mouseleave', scheduleAutoHideClose);
 
     (document.body || document.documentElement).appendChild(root);
     widget = root;
