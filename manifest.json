@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "模型 · 额度监测 for ChatGPT",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "在 ChatGPT 网页左上角显示 5 小时 / 7 天剩余额度，并核对请求 model 与服务端 STE 报告的 model_slug 是否一致（chat 与 work 通用）。",
   "minimum_chrome_version": "111",
   "content_scripts": [

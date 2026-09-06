@@ -17,7 +17,8 @@
     cardColor: null,
     cardOpacity: 92,
     showModelRoute: true,
-    defaultHidden: false
+    defaultHidden: false,
+    language: 'auto'
   };
 
   const FONT_FAMILIES = {
@@ -25,6 +26,37 @@
     serif: 'ui-serif, Georgia, Cambria, "Times New Roman", serif',
     mono: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
   };
+
+
+  const I18N = {
+    zh: {
+      settingsTitle: '显示设置', language: '界面语言', modelRouting: '显示模型路由', autoHide: '默认隐藏',
+      font: '字体', system: '系统无衬线', serif: '衬线', mono: '等宽', size: '字号',
+      textColor: '文字颜色', cardColor: '卡片颜色', opacity: '透明度',
+      followTheme: '跟随主题', reset: '恢复默认', settings: '显示设置',
+      usageTitle: 'Work / Codex 剩余额度', clickRefresh: '点击卡片立即刷新。',
+      readError: '暂时读取不到额度', retry: '点击卡片重试。'
+    },
+    en: {
+      settingsTitle: 'Display settings', language: 'Language', modelRouting: 'Model routing', autoHide: 'Auto-hide',
+      font: 'Font', system: 'System sans', serif: 'Serif', mono: 'Monospace', size: 'Font size',
+      textColor: 'Text color', cardColor: 'Card color', opacity: 'Opacity',
+      followTheme: 'Follow theme', reset: 'Reset', settings: 'Display settings',
+      usageTitle: 'Work / Codex remaining quota', clickRefresh: 'Click the card to refresh.',
+      readError: 'Unable to read quota right now', retry: 'Click the card to retry.'
+    }
+  };
+
+  function resolvedLanguage() {
+    if (currentSettings.language === 'zh' || currentSettings.language === 'en') return currentSettings.language;
+    const lang = String(navigator.language || '').toLowerCase();
+    return lang.startsWith('zh') ? 'zh' : 'en';
+  }
+
+  function t(key) {
+    const lang = resolvedLanguage();
+    return I18N[lang][key] ?? I18N.en[key] ?? key;
+  }
 
   let payload = null;
   let lastError = '';
@@ -130,8 +162,23 @@
     widget.style.setProperty('--yy-font-family', fontFamily);
     widget.style.setProperty('--yy-font-size', `${fontSize}px`);
     widget.dataset.autoHide = currentSettings.defaultHidden ? 'true' : 'false';
+    applyLanguage();
 
     if (settingsPanel) syncSettingsControls();
+  }
+
+  function applyLanguage() {
+    if (!widget) return;
+    if (settingsPanel) {
+      settingsPanel.querySelectorAll('[data-i18n]').forEach((node) => {
+        node.textContent = t(node.dataset.i18n);
+      });
+    }
+    if (settingsButton) {
+      settingsButton.setAttribute('aria-label', t('settings'));
+      settingsButton.title = t('settings');
+    }
+    render();
   }
 
   function syncSettingsControls() {
@@ -146,6 +193,7 @@
     const cardOpacityValue = settingsPanel.querySelector('[data-role="cardOpacityValue"]');
     const showModelRoute = settingsPanel.querySelector('[data-setting="showModelRoute"]');
     const defaultHidden = settingsPanel.querySelector('[data-setting="defaultHidden"]');
+    const language = settingsPanel.querySelector('[data-setting="language"]');
 
     if (fontSelect) fontSelect.value = currentSettings.fontFamily;
     if (fontSize) fontSize.value = String(currentSettings.fontSize);
@@ -156,6 +204,7 @@
     if (cardOpacityValue) cardOpacityValue.textContent = `${currentSettings.cardOpacity}%`;
     if (showModelRoute) showModelRoute.checked = currentSettings.showModelRoute !== false;
     if (defaultHidden) defaultHidden.checked = Boolean(currentSettings.defaultHidden);
+    if (language) language.value = currentSettings.language || 'auto';
   }
 
   async function loadSettings() {
@@ -180,52 +229,61 @@
     panel.className = 'yy-cum-settings-panel';
     panel.hidden = true;
     panel.innerHTML = `
-      <div class="yy-cum-settings-title">显示设置</div>
+      <div class="yy-cum-settings-title" data-i18n="settingsTitle"></div>
+
+      <label class="yy-cum-setting-line">
+        <span data-i18n="language"></span>
+        <select data-setting="language">
+          <option value="auto">Auto</option>
+          <option value="zh">中文</option>
+          <option value="en">English</option>
+        </select>
+      </label>
 
       <label class="yy-cum-setting-line yy-cum-setting-toggle-line">
-        <span>显示模型路由</span>
+        <span data-i18n="modelRouting"></span>
         <input data-setting="showModelRoute" type="checkbox">
       </label>
 
       <label class="yy-cum-setting-line yy-cum-setting-toggle-line">
-        <span>默认隐藏</span>
+        <span data-i18n="autoHide"></span>
         <input data-setting="defaultHidden" type="checkbox">
       </label>
 
       <label class="yy-cum-setting-line">
-        <span>字体</span>
+        <span data-i18n="font"></span>
         <select data-setting="fontFamily">
-          <option value="system">系统无衬线</option>
-          <option value="serif">衬线</option>
-          <option value="mono">等宽</option>
+          <option value="system" data-i18n="system"></option>
+          <option value="serif" data-i18n="serif"></option>
+          <option value="mono" data-i18n="mono"></option>
         </select>
       </label>
 
       <label class="yy-cum-setting-line yy-cum-setting-range-line">
-        <span>字号</span>
+        <span data-i18n="size"></span>
         <input data-setting="fontSize" type="range" min="11" max="18" step="1">
         <span class="yy-cum-setting-value" data-role="fontSizeValue"></span>
       </label>
 
       <label class="yy-cum-setting-line">
-        <span>文字颜色</span>
+        <span data-i18n="textColor"></span>
         <input data-setting="textColor" type="color">
       </label>
 
       <label class="yy-cum-setting-line">
-        <span>卡片颜色</span>
+        <span data-i18n="cardColor"></span>
         <input data-setting="cardColor" type="color">
       </label>
 
       <label class="yy-cum-setting-line yy-cum-setting-range-line">
-        <span>透明度</span>
+        <span data-i18n="opacity"></span>
         <input data-setting="cardOpacity" type="range" min="20" max="100" step="1">
         <span class="yy-cum-setting-value" data-role="cardOpacityValue"></span>
       </label>
 
       <div class="yy-cum-settings-actions">
-        <button type="button" data-action="theme-default">跟随主题</button>
-        <button type="button" data-action="reset-all">恢复默认</button>
+        <button type="button" data-action="theme-default" data-i18n="followTheme"></button>
+        <button type="button" data-action="reset-all" data-i18n="reset"></button>
       </div>
     `;
 
@@ -239,6 +297,13 @@
     const cardOpacity = panel.querySelector('[data-setting="cardOpacity"]');
     const showModelRoute = panel.querySelector('[data-setting="showModelRoute"]');
     const defaultHidden = panel.querySelector('[data-setting="defaultHidden"]');
+    const language = panel.querySelector('[data-setting="language"]');
+
+    language.addEventListener('change', () => {
+      currentSettings.language = language.value;
+      applySettings();
+      saveSettings();
+    });
 
     showModelRoute.addEventListener('change', () => {
       currentSettings.showModelRoute = showModelRoute.checked;
@@ -501,14 +566,14 @@
 
       #${WIDGET_ID} .yy-cum-setting-line {
         display: grid;
-        grid-template-columns: 72px 1fr;
+        grid-template-columns: 88px 1fr;
         align-items: center;
         gap: 8px;
         min-height: 32px;
       }
 
       #${WIDGET_ID} .yy-cum-setting-range-line {
-        grid-template-columns: 72px 1fr 42px;
+        grid-template-columns: 88px 1fr 42px;
       }
 
       #${WIDGET_ID} .yy-cum-setting-toggle-line {
@@ -582,13 +647,13 @@
     const root = document.createElement('div');
     root.id = WIDGET_ID;
     root.className = 'yy-cum-loading';
-    root.title = 'Work / Codex 剩余额度。点击卡片立即刷新。';
+    root.title = `${t('usageTitle')}。${t('clickRefresh')}`;
 
     const header = document.createElement('div');
     header.className = 'yy-cum-header';
     header.innerHTML = `
       <span class="yy-cum-title">Work / Codex</span>
-      <button class="yy-cum-settings-button" type="button" aria-label="显示设置" aria-expanded="false" title="显示设置">
+      <button class="yy-cum-settings-button" type="button" aria-label="Display settings" aria-expanded="false" title="Display settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="3.15"></circle>
           <path d="M10.32 5.26L10.49 2.98A9.15 9.15 0 0 1 13.51 2.98L13.68 5.26A6.95 6.95 0 0 1 15.58 6.04L17.31 4.55A9.15 9.15 0 0 1 19.45 6.69L17.96 8.42A6.95 6.95 0 0 1 18.74 10.32L21.02 10.49A9.15 9.15 0 0 1 21.02 13.51L18.74 13.68A6.95 6.95 0 0 1 17.96 15.58L19.45 17.31A9.15 9.15 0 0 1 17.31 19.45L15.58 17.96A6.95 6.95 0 0 1 13.68 18.74L13.51 21.02A9.15 9.15 0 0 1 10.49 21.02L10.32 18.74A6.95 6.95 0 0 1 8.42 17.96L6.69 19.45A9.15 9.15 0 0 1 4.55 17.31L6.04 15.58A6.95 6.95 0 0 1 5.26 13.68L2.98 13.51A9.15 9.15 0 0 1 2.98 10.49L5.26 10.32A6.95 6.95 0 0 1 6.04 8.42L4.55 6.69A9.15 9.15 0 0 1 6.69 4.55L8.42 6.04A6.95 6.95 0 0 1 10.32 5.26Z"></path>
@@ -752,9 +817,9 @@
     if (payload) {
       widget.classList.remove('yy-cum-loading');
       const plan = payload.plan_type ? ` · ${payload.plan_type}` : '';
-      widget.title = `Work / Codex 剩余额度${plan}。点击卡片立即刷新。`;
+      widget.title = `${t('usageTitle')}${plan}. ${t('clickRefresh')}`;
     } else if (lastError) {
-      widget.title = `暂时读取不到额度：${lastError}\n点击卡片重试。`;
+      widget.title = `${t('readError')}: ${lastError}\n${t('retry')}`;
     }
   }
 

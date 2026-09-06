@@ -1,9 +1,14 @@
-# 模型 · 额度监测 for ChatGPT v0.7.1
+# 模型 · 额度监测 for ChatGPT v0.7.4
 
-> 非官方第三方扩展，与 OpenAI 无隶属、合作或官方认可关系。  
+> 非官方第三方扩展，与 OpenAI 无隶属、合作或官方认可关系。
 > Unofficial third-party extension. Not affiliated with or endorsed by OpenAI.
 
 在 chatgpt.com 左上角显示 Work / Codex 的 5 小时、7 天剩余额度，以及请求 model 与服务端 STE 遥测报告的 model_slug。
+
+
+## Language
+
+The gear menu now includes **Language: Auto / 中文 / English**. Auto follows the browser language: Chinese browsers use Chinese; other languages use English.
 
 ## v0.7.1 修复
 
@@ -24,7 +29,7 @@
 2. 打开 `chrome://extensions/`。
 3. 开启「开发者模式」。
 4. 选择「加载已解压的扩展程序」。
-5. 选择解压后的 `chatgpt-model-meter-v0.7.0` 文件夹。
+5. 选择解压后的 `chatgpt-model-meter-v0.7.3` 文件夹。
 6. 停用旧版模型/额度插件，避免重复网络钩子。
 7. 刷新 ChatGPT 页面。
 
@@ -37,4 +42,9 @@
 
 ## 版本
 
+v0.7.3 — 默认隐藏模式新增约 5px 外沿缓冲区；鼠标只离开展开卡片/设置面板几像素时保持展开，继续移远后再收起。
+
 v0.7.2 — 修复默认隐藏模式下设置面板缝隙误收起。
+
+
+v0.7.4 — Added Auto / 中文 / English interface language support.

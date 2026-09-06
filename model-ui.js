@@ -15,6 +15,7 @@
   let snapshot = null;
   let prefs = { open: false, paths: false };
   let showModelRoute = null;
+  let languageSetting = 'auto';
 
   const el = (tag, cls, txt) => {
     const node = document.createElement(tag);
@@ -24,6 +25,76 @@
   };
 
   const send = (type, extra) => window.postMessage({ source: OUT, type, ...extra }, '*');
+
+
+  const I18N = {
+    zh: {
+      waitingSend: '等待发送', noMessages: '这个标签页还没发出过消息', notCaptured: '未捕获',
+      approx: '\n（这条是按最近一次发送推断关联的，不是精确对上号）', noSte: '没抓到 STE',
+      noSteHelp: '这一轮结束了，但没抓到 server_ste_metadata 事件，所以拿不到 STE 模型标识。\n展开点「显示字段路径」，看看这一轮都出现过哪些事件名。',
+      waitingSte: '等 STE 中…', waitingSteHelp: '已经发出去了，在等流末尾的 server_ste_metadata 事件。\n它在整轮结束时才发，work 的长任务要等几分钟。',
+      mismatch: '请求的 model 与 STE 报告的 model_slug 不一致', match: '请求的 model 与 STE 报告的 model_slug 一致',
+      surface: '产品线', requestTier: '请求档位', autoReasoning: '自动转推理', autoSwitcher: '自动切换器',
+      switchRace: '切换竞速', search: '联网搜索', cluster: '集群', useCase: '用途', toolInvoked: '调用工具',
+      toolName: '工具名', plan: '套餐', latency: '首字延迟', none: '无', yes: '是', no: '否',
+      ui: '界面', effort: '强度', messageLabel: '消息层标识', requestMismatch: '（与请求不符）', notSeen: '未出现',
+      api: '接口', status: '状态', approxInline: '（按最近一次发送推断关联）', fields: '字段', events: '事件',
+      noSlug: '一个 model_slug 都没命中', noEvent: '未捕获事件名', requestTitle: '请求体里的 model —— 网页发出去时要的那个',
+      runTitle: 'STE 报告的 model_slug —— 服务端发送给前端的执行侧模型标识', surfaceTitle: 'STE 报告的产品线，不是按接口猜的',
+      empty: '发一条消息，这里会显示请求的 model 和 STE 报告的 model_slug。', thisTurn: '这一轮', hidePaths: '隐藏字段路径', showPaths: '显示字段路径',
+      stateSent: '已发送', stateStreaming: '流中，等 STE', stateHandoff: '已移交后台，等 STE', stateConfirmed: '已收到 STE 模型标识',
+      stateNoSte: '流已结束，没有 STE 事件', stateFailed: '请求失败'
+    },
+    en: {
+      waitingSend: 'Waiting', noMessages: 'No message has been sent in this tab yet', notCaptured: 'Not captured',
+      approx: '\n(Associated with the most recent send; not an exact turn match)', noSte: 'No STE found',
+      noSteHelp: 'The turn ended without a server_ste_metadata event, so no STE model identifier is available.\nOpen “Show field paths” to inspect the event names seen in this turn.',
+      waitingSte: 'Waiting for STE…', waitingSteHelp: 'Request sent; waiting for server_ste_metadata at the end of the stream.\nLong Work tasks may take several minutes.',
+      mismatch: 'Requested model and STE-reported model_slug do not match', match: 'Requested model matches the STE-reported model_slug',
+      surface: 'Surface', requestTier: 'Request tier', autoReasoning: 'Auto reasoning', autoSwitcher: 'Auto switcher',
+      switchRace: 'Switch race', search: 'Web search', cluster: 'Cluster', useCase: 'Use case', toolInvoked: 'Tool invoked',
+      toolName: 'Tool name', plan: 'Plan', latency: 'First-token latency', none: 'None', yes: 'Yes', no: 'No',
+      ui: 'UI', effort: 'Effort', messageLabel: 'Message-layer ID', requestMismatch: ' (differs from request)', notSeen: 'Not seen',
+      api: 'API', status: 'Status', approxInline: ' (associated with latest send)', fields: 'Fields', events: 'Events',
+      noSlug: 'No model_slug matched', noEvent: 'No event names captured', requestTitle: 'model from the outgoing request body',
+      runTitle: 'model_slug reported to the client in server STE metadata', surfaceTitle: 'Product surface reported by STE metadata',
+      empty: 'Send a message to see the requested model and STE-reported model_slug.', thisTurn: 'this turn', hidePaths: 'Hide field paths', showPaths: 'Show field paths',
+      stateSent: 'Sent', stateStreaming: 'Streaming; waiting for STE', stateHandoff: 'Handed off; waiting for STE', stateConfirmed: 'STE model identifier received',
+      stateNoSte: 'Stream ended without STE', stateFailed: 'Request failed'
+    }
+  };
+
+  function resolvedLanguage() {
+    if (languageSetting === 'zh' || languageSetting === 'en') return languageSetting;
+    return String(navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+  }
+
+  function t(key) {
+    const lang = resolvedLanguage();
+    return I18N[lang][key] ?? I18N.en[key] ?? key;
+  }
+
+  const STATE_KEYS = {
+    '已发送': 'stateSent',
+    '流中，等 STE': 'stateStreaming',
+    '已移交后台，等 STE': 'stateHandoff',
+    '已确认执行模型': 'stateConfirmed',
+    '流已结束，没有 STE 事件': 'stateNoSte',
+    '请求失败': 'stateFailed'
+  };
+
+  const NOTE_EN = {
+    '请求体不可读，本次未建立记录': 'Request body was unreadable; no turn record was created',
+    '单个事件过大，已跳过': 'Oversized event skipped',
+    '请求体已被消费，本次未记录发送模型': 'Request body was already consumed; requested model was not recorded',
+    '响应不可复制': 'Response could not be cloned',
+    '响应采集失败，页面请求不受影响': 'Response capture failed; page request was unaffected',
+    'XHR 响应不可读': 'XHR response was unreadable'
+  };
+
+  function localizeNote(note) {
+    return resolvedLanguage() === 'en' ? (NOTE_EN[note] || note) : note;
+  }
 
   function savePrefs() {
     try { chrome.storage.sync.set({ [PREF_KEY]: prefs }); } catch {}
@@ -40,9 +111,12 @@
   async function loadRouteSetting() {
     try {
       const got = await chrome.storage.sync.get(DISPLAY_SETTINGS_KEY);
-      showModelRoute = got?.[DISPLAY_SETTINGS_KEY]?.showModelRoute !== false;
+      const display = got?.[DISPLAY_SETTINGS_KEY] || {};
+      showModelRoute = display.showModelRoute !== false;
+      languageSetting = display.language || 'auto';
     } catch {
       showModelRoute = true;
+      languageSetting = 'auto';
     }
     applyRouteSetting();
   }
@@ -69,12 +143,12 @@
   // 流中间 message 事件带的 model_slug 是请求回显，全程不变，不能当执行证据。
   function verdict(turn) {
     if (!turn) {
-      return { code: 'idle', chip: '--', req: '--', run: '等待发送', help: '这个标签页还没发出过消息' };
+      return { code: 'idle', chip: '--', req: '--', run: t('waitingSend'), help: t('noMessages') };
     }
 
     const exec = [...new Set(turn.exec)];
-    const req = turn.requested || '未捕获';
-    const approxNote = turn.approx ? '\n（这条是按最近一次发送推断关联的，不是精确对上号）' : '';
+    const req = turn.requested || t('notCaptured');
+    const approxNote = turn.approx ? t('approx') : '';
 
     if (!exec.length) {
       if (turn.closed) {
@@ -82,18 +156,16 @@
           code: 'unknown',
           chip: '?',
           req,
-          run: '没抓到 STE',
-          help: '这一轮结束了，但没抓到 server_ste_metadata 事件，所以拿不到 STE 模型标识。'
-            + '\n展开点「显示字段路径」，看看这一轮都出现过哪些事件名。'
+          run: t('noSte'),
+          help: t('noSteHelp')
         };
       }
       return {
         code: 'waiting',
         chip: '···',
         req,
-        run: '等 STE 中…',
-        help: '已经发出去了，在等流末尾的 server_ste_metadata 事件。'
-          + '\n它在整轮结束时才发，work 的长任务要等几分钟。'
+        run: t('waitingSte'),
+        help: t('waitingSteHelp')
       };
     }
 
@@ -104,7 +176,7 @@
         chip: turn.approx ? '≈' : '≠',
         req,
         run,
-        help: '请求的 model 与 STE 报告的 model_slug 不一致' + approxNote
+        help: t('mismatch') + approxNote
       };
     }
 
@@ -113,55 +185,57 @@
       chip: turn.approx ? '≈' : '✓',
       req,
       run,
-      help: '请求的 model 与 STE 报告的 model_slug 一致' + approxNote
+      help: t('match') + approxNote
     };
   }
 
   /* ---------------- 渲染 ---------------- */
 
-  const FLAG_LABEL = {
-    product_experience: '产品线',
-    requested_model_experience: '请求档位',
-    did_auto_switch_to_reasoning: '自动转推理',
-    is_autoswitcher_enabled: '自动切换器',
-    auto_switcher_race_winner: '切换竞速',
-    is_search: '联网搜索',
-    cluster_region: '集群',
-    turn_use_case: '用途',
-    tool_invoked: '调用工具',
-    tool_name: '工具名',
-    plan_type: '套餐',
-    server_ttfvt_ms: '首字延迟'
-  };
+  function flagLabels() {
+    return {
+      product_experience: t('surface'),
+      requested_model_experience: t('requestTier'),
+      did_auto_switch_to_reasoning: t('autoReasoning'),
+      is_autoswitcher_enabled: t('autoSwitcher'),
+      auto_switcher_race_winner: t('switchRace'),
+      is_search: t('search'),
+      cluster_region: t('cluster'),
+      turn_use_case: t('useCase'),
+      tool_invoked: t('toolInvoked'),
+      tool_name: t('toolName'),
+      plan_type: t('plan'),
+      server_ttfvt_ms: t('latency')
+    };
+  }
 
   const flagText = (key, value) => {
-    if (value === null) return '无';
-    if (typeof value === 'boolean') return value ? '是' : '否';
+    if (value === null) return t('none');
+    if (typeof value === 'boolean') return value ? t('yes') : t('no');
     if (key === 'server_ttfvt_ms') return value + ' ms';
     return String(value);
   };
 
   function detailLines(turn) {
-    const lines = [['界面', turn.ui || '未捕获']];
-    if (turn.effort) lines.push(['强度', turn.effort]);
+    const lines = [[t('ui'), turn.ui || t('notCaptured')]];
+    if (turn.effort) lines.push([t('effort'), turn.effort]);
 
     // 回显是请求的回声，正常情况下跟「请求」一模一样，没有信息量。
     // 只有它跟请求对不上时才值得看 —— 那说明服务端在消息层改写了标识。
     const echoOdd = turn.echo.length && (turn.echo.length > 1 || turn.echo[0] !== turn.requested);
-    if (echoOdd) lines.push(['消息层标识', turn.echo.join(' / ') + '（与请求不符）']);
-    else if (prefs.paths) lines.push(['消息层标识', turn.echo.join(' / ') || '未出现']);
+    if (echoOdd) lines.push([t('messageLabel'), turn.echo.join(' / ') + t('requestMismatch')]);
+    else if (prefs.paths) lines.push([t('messageLabel'), turn.echo.join(' / ') || t('notSeen')]);
 
-    for (const [key, label] of Object.entries(FLAG_LABEL)) {
+    for (const [key, label] of Object.entries(flagLabels())) {
       if (key in turn.flags) lines.push([label, flagText(key, turn.flags[key])]);
     }
 
-    lines.push(['接口', [turn.api, ...turn.transports].filter(Boolean).join(' · ') || '--']);
-    const stateText = turn.state === '已确认执行模型' ? '已收到 STE 模型标识' : turn.state;
-    lines.push(['状态', stateText + (turn.approx ? '（按最近一次发送推断关联）' : '')]);
+    lines.push([t('api'), [turn.api, ...turn.transports].filter(Boolean).join(' · ') || '--']);
+    const stateText = STATE_KEYS[turn.state] ? t(STATE_KEYS[turn.state]) : turn.state;
+    lines.push([t('status'), stateText + (turn.approx ? t('approxInline') : '')]);
 
     if (prefs.paths) {
-      lines.push(['字段', turn.paths.join('\n') || '一个 model_slug 都没命中']);
-      lines.push(['事件', turn.events.join('\n') || '未捕获事件名']);
+      lines.push([t('fields'), turn.paths.join('\n') || t('noSlug')]);
+      lines.push([t('events'), turn.events.join('\n') || t('noEvent')]);
     }
     return lines;
   }
@@ -175,18 +249,18 @@
 
     const reqVal = block.querySelector('.yy-mum-reqval');
     reqVal.textContent = v.req;
-    reqVal.title = '请求体里的 model —— 网页发出去时要的那个';
+    reqVal.title = t('requestTitle');
 
     const runVal = block.querySelector('.yy-mum-runval');
     runVal.textContent = v.run;
     runVal.dataset.code = v.code;
-    runVal.title = 'STE 报告的 model_slug —— 服务端发送给前端的执行侧模型标识';
+    runVal.title = t('runTitle');
 
     const tag = block.querySelector('.yy-mum-surface');
     const surface = turn && turn.flags ? turn.flags.product_experience : '';
     tag.textContent = surface || '';
     tag.hidden = !surface;
-    tag.title = 'STE 报告的产品线，不是按接口猜的';
+    tag.title = t('surfaceTitle');
 
     const chip = block.querySelector('.yy-mum-chip');
     chip.textContent = v.chip;
@@ -201,18 +275,18 @@
     body.replaceChildren();
 
     if (!turn) {
-      body.append(el('div', 'yy-mum-empty', '发一条消息，这里会显示请求的 model 和 STE 报告的 model_slug。'));
+      body.append(el('div', 'yy-mum-empty', t('empty')));
     } else {
-      body.append(el('div', 'yy-mum-time', new Date(turn.t).toLocaleTimeString('zh-CN', { hour12: false }) + ' 这一轮'));
+      body.append(el('div', 'yy-mum-time', new Date(turn.t).toLocaleTimeString(resolvedLanguage() === 'zh' ? 'zh-CN' : 'en-US', { hour12: false }) + ' ' + t('thisTurn')));
       const dl = el('dl', 'yy-mum-dl');
       for (const [k, val] of detailLines(turn)) dl.append(el('dt', null, k), el('dd', null, val));
       body.append(dl);
     }
 
-    if (snapshot?.notes?.length) body.append(el('div', 'yy-mum-note', snapshot.notes.join('；')));
+    if (snapshot?.notes?.length) body.append(el('div', 'yy-mum-note', snapshot.notes.map(localizeNote).join(resolvedLanguage() === 'zh' ? '；' : '; ')));
 
     const actions = el('div', 'yy-mum-actions');
-    const paths = el('button', null, prefs.paths ? '隐藏字段路径' : '显示字段路径');
+    const paths = el('button', null, prefs.paths ? t('hidePaths') : t('showPaths'));
     paths.type = 'button';
     paths.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -375,7 +449,7 @@
       el('span', 'yy-mum-main yy-mum-reqval', '--'),
       el('span'), el('span'), el('span'),
       el('span', 'yy-mum-key', 'run'),
-      el('span', 'yy-mum-main yy-mum-runval', '等待发送'),
+      el('span', 'yy-mum-main yy-mum-runval', t('waitingSend')),
       el('span', 'yy-mum-surface'),
       el('span', 'yy-mum-chip', '--'),
       el('span', 'yy-mum-caret', '▸')
@@ -426,8 +500,9 @@
   try {
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== 'sync' || !(DISPLAY_SETTINGS_KEY in changes)) return;
-      const saved = changes[DISPLAY_SETTINGS_KEY].newValue;
-      showModelRoute = saved?.showModelRoute !== false;
+      const saved = changes[DISPLAY_SETTINGS_KEY].newValue || {};
+      showModelRoute = saved.showModelRoute !== false;
+      languageSetting = saved.language || 'auto';
       applyRouteSetting();
     });
   } catch {}
