@@ -15,7 +15,9 @@
     fontSize: 13,
     textColor: null,
     cardColor: null,
-    cardOpacity: 92
+    cardOpacity: 92,
+    showModelRoute: true,
+    defaultHidden: false
   };
 
   const FONT_FAMILIES = {
@@ -95,11 +97,6 @@
     };
   }
 
-  function rgbToHex(rgb) {
-    const toHex = (value) => clamp(Math.round(value), 0, 255).toString(16).padStart(2, '0');
-    return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
-  }
-
   function themeDefaults() {
     const dark = widget?.dataset.theme === 'dark' || bodyLooksDark();
     return dark
@@ -128,6 +125,7 @@
     widget.style.setProperty('--yy-text-color', colors.textColor);
     widget.style.setProperty('--yy-font-family', fontFamily);
     widget.style.setProperty('--yy-font-size', `${fontSize}px`);
+    widget.dataset.autoHide = currentSettings.defaultHidden ? 'true' : 'false';
 
     if (settingsPanel) syncSettingsControls();
   }
@@ -142,6 +140,8 @@
     const cardColor = settingsPanel.querySelector('[data-setting="cardColor"]');
     const cardOpacity = settingsPanel.querySelector('[data-setting="cardOpacity"]');
     const cardOpacityValue = settingsPanel.querySelector('[data-role="cardOpacityValue"]');
+    const showModelRoute = settingsPanel.querySelector('[data-setting="showModelRoute"]');
+    const defaultHidden = settingsPanel.querySelector('[data-setting="defaultHidden"]');
 
     if (fontSelect) fontSelect.value = currentSettings.fontFamily;
     if (fontSize) fontSize.value = String(currentSettings.fontSize);
@@ -150,6 +150,8 @@
     if (cardColor) cardColor.value = colors.cardColor;
     if (cardOpacity) cardOpacity.value = String(currentSettings.cardOpacity);
     if (cardOpacityValue) cardOpacityValue.textContent = `${currentSettings.cardOpacity}%`;
+    if (showModelRoute) showModelRoute.checked = currentSettings.showModelRoute !== false;
+    if (defaultHidden) defaultHidden.checked = Boolean(currentSettings.defaultHidden);
   }
 
   async function loadSettings() {
@@ -175,6 +177,16 @@
     panel.hidden = true;
     panel.innerHTML = `
       <div class="yy-cum-settings-title">显示设置</div>
+
+      <label class="yy-cum-setting-line yy-cum-setting-toggle-line">
+        <span>显示模型路由</span>
+        <input data-setting="showModelRoute" type="checkbox">
+      </label>
+
+      <label class="yy-cum-setting-line yy-cum-setting-toggle-line">
+        <span>默认隐藏</span>
+        <input data-setting="defaultHidden" type="checkbox">
+      </label>
 
       <label class="yy-cum-setting-line">
         <span>字体</span>
@@ -221,6 +233,20 @@
     const textColor = panel.querySelector('[data-setting="textColor"]');
     const cardColor = panel.querySelector('[data-setting="cardColor"]');
     const cardOpacity = panel.querySelector('[data-setting="cardOpacity"]');
+    const showModelRoute = panel.querySelector('[data-setting="showModelRoute"]');
+    const defaultHidden = panel.querySelector('[data-setting="defaultHidden"]');
+
+    showModelRoute.addEventListener('change', () => {
+      currentSettings.showModelRoute = showModelRoute.checked;
+      applySettings();
+      saveSettings();
+    });
+
+    defaultHidden.addEventListener('change', () => {
+      currentSettings.defaultHidden = defaultHidden.checked;
+      applySettings();
+      saveSettings();
+    });
 
     fontSelect.addEventListener('change', () => {
       currentSettings.fontFamily = fontSelect.value;
@@ -298,7 +324,25 @@
         font-size: var(--yy-font-size);
         line-height: 1.15;
         user-select: none;
-        transition: left 120ms ease, opacity 120ms ease, background-color 120ms ease, color 120ms ease;
+        transition: left 120ms ease, width 140ms ease, padding 140ms ease,
+          opacity 120ms ease, background-color 120ms ease, color 120ms ease;
+      }
+
+      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open) {
+        width: 112px;
+        padding: 7px 10px;
+      }
+
+      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open) .yy-cum-header {
+        min-height: 24px;
+        margin-bottom: 0;
+      }
+
+      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open) > .yy-cum-row,
+      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open) > .yy-mum-block,
+      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open) .yy-cum-settings-button,
+      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open) > .yy-cum-settings-panel {
+        display: none !important;
       }
 
       #${WIDGET_ID}[data-theme="dark"] {
@@ -451,6 +495,17 @@
         grid-template-columns: 72px 1fr 42px;
       }
 
+      #${WIDGET_ID} .yy-cum-setting-toggle-line {
+        grid-template-columns: 1fr auto;
+      }
+
+      #${WIDGET_ID} .yy-cum-setting-toggle-line input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        cursor: pointer;
+      }
+
       #${WIDGET_ID} .yy-cum-setting-line select,
       #${WIDGET_ID} .yy-cum-setting-line input[type="range"] {
         width: 100%;
@@ -537,6 +592,7 @@
       const nextOpen = settingsPanel.hidden;
       settingsPanel.hidden = !nextOpen;
       settingsButton.setAttribute('aria-expanded', String(nextOpen));
+      root.classList.toggle('yy-cum-settings-open', nextOpen);
       if (nextOpen) syncSettingsControls();
     });
 
@@ -544,6 +600,13 @@
       if (event.target.closest('.yy-cum-settings-button, .yy-cum-settings-panel')) return;
       root.classList.add('yy-cum-loading');
       requestUsage(true);
+    });
+
+    root.addEventListener('mouseleave', () => {
+      if (!currentSettings.defaultHidden || !settingsPanel || settingsPanel.hidden) return;
+      settingsPanel.hidden = true;
+      settingsButton?.setAttribute('aria-expanded', 'false');
+      root.classList.remove('yy-cum-settings-open');
     });
 
     (document.body || document.documentElement).appendChild(root);
@@ -727,6 +790,7 @@
     if (widget.contains(event.target)) return;
     settingsPanel.hidden = true;
     settingsButton?.setAttribute('aria-expanded', 'false');
+    widget.classList.remove('yy-cum-settings-open');
   }
 
   function init() {
@@ -747,6 +811,7 @@
       if (event.key === 'Escape' && settingsPanel && !settingsPanel.hidden) {
         settingsPanel.hidden = true;
         settingsButton?.setAttribute('aria-expanded', 'false');
+        widget?.classList.remove('yy-cum-settings-open');
       }
     });
 

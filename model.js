@@ -97,7 +97,7 @@
 
   // 输入框旁边显示模型名的控件。名字随版本变过，所以多认几种，
   // 再用模型名特征筛一遍，免得把「深度研究」这类工具药丸当成模型。
-  const MODEL_TEXT = /gpt|o\d|auto|thinking|instant|terra|luna|sol|astra|pro|mini/i;
+  const MODEL_TEXT = /gpt|o\d|auto|thinking|instant|terra|luna|sol|astra|pro\b|mini/i;
 
   function uiLabel() {
     let el = document.getElementById('prompt-textarea');
@@ -258,7 +258,6 @@
     }
     return s;
   }
-
   /* ---------------- 遍历 ---------------- */
 
   // 三重识别：外层键名、事件名或 type 值、STE 自己的特征字段。任一命中即算执行证据。

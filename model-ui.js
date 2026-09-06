@@ -9,10 +9,12 @@
   const OUT = 'yy-mum-widget';
   const IN = 'yy-mum-model';
   const PREF_KEY = 'yyModelMeterPrefs';
+  const DISPLAY_SETTINGS_KEY = 'yyCodexUsageMeterSettings';
 
   let block = null;
   let snapshot = null;
   let prefs = { open: false, paths: false };
+  let showModelRoute = null;
 
   const el = (tag, cls, txt) => {
     const node = document.createElement(tag);
@@ -35,9 +37,35 @@
     render();
   }
 
+  async function loadRouteSetting() {
+    try {
+      const got = await chrome.storage.sync.get(DISPLAY_SETTINGS_KEY);
+      showModelRoute = got?.[DISPLAY_SETTINGS_KEY]?.showModelRoute !== false;
+    } catch {
+      showModelRoute = true;
+    }
+    applyRouteSetting();
+  }
+
+  function applyRouteSetting() {
+    const visible = showModelRoute !== false;
+    send('YY_MUM_PAUSE', { paused: !visible });
+
+    if (!visible) {
+      if (block) {
+        block.remove();
+        block = null;
+      }
+      return;
+    }
+
+    attach();
+    render();
+  }
+
   /* ---------------- 判定 ---------------- */
 
-  // 实际执行的模型只认流末尾 server_ste_metadata 事件里的 model_slug。
+  // 执行侧证据只认流末尾 server_ste_metadata 事件里的 model_slug。
   // 流中间 message 事件带的 model_slug 是请求回显，全程不变，不能当执行证据。
   function verdict(turn) {
     if (!turn) {
@@ -55,7 +83,7 @@
           chip: '?',
           req,
           run: '没抓到 STE',
-          help: '这一轮结束了，但没抓到 server_ste_metadata 事件，所以拿不到实际执行的模型。'
+          help: '这一轮结束了，但没抓到 server_ste_metadata 事件，所以拿不到 STE 模型标识。'
             + '\n展开点「显示字段路径」，看看这一轮都出现过哪些事件名。'
         };
       }
@@ -76,7 +104,7 @@
         chip: turn.approx ? '≈' : '≠',
         req,
         run,
-        help: '请求的 model 和 STE 报告的实际执行 model 不一样，也就是被重路由了' + approxNote
+        help: '请求的 model 与 STE 报告的 model_slug 不一致' + approxNote
       };
     }
 
@@ -85,7 +113,7 @@
       chip: turn.approx ? '≈' : '✓',
       req,
       run,
-      help: '请求的 model 与 STE 报告的实际执行 model 一致' + approxNote
+      help: '请求的 model 与 STE 报告的 model_slug 一致' + approxNote
     };
   }
 
@@ -128,7 +156,8 @@
     }
 
     lines.push(['接口', [turn.api, ...turn.transports].filter(Boolean).join(' · ') || '--']);
-    lines.push(['状态', turn.state + (turn.approx ? '（按最近一次发送推断关联）' : '')]);
+    const stateText = turn.state === '已确认执行模型' ? '已收到 STE 模型标识' : turn.state;
+    lines.push(['状态', stateText + (turn.approx ? '（按最近一次发送推断关联）' : '')]);
 
     if (prefs.paths) {
       lines.push(['字段', turn.paths.join('\n') || '一个 model_slug 都没命中']);
@@ -151,7 +180,7 @@
     const runVal = block.querySelector('.yy-mum-runval');
     runVal.textContent = v.run;
     runVal.dataset.code = v.code;
-    runVal.title = 'STE 报告的 model_slug —— 服务端实际跑的那个';
+    runVal.title = 'STE 报告的 model_slug —— 服务端发送给前端的执行侧模型标识';
 
     const tag = block.querySelector('.yy-mum-surface');
     const surface = turn && turn.flags ? turn.flags.product_experience : '';
@@ -172,7 +201,7 @@
     body.replaceChildren();
 
     if (!turn) {
-      body.append(el('div', 'yy-mum-empty', '发一条消息，这里会显示请求的 model 和响应回来的 model_slug。'));
+      body.append(el('div', 'yy-mum-empty', '发一条消息，这里会显示请求的 model 和 STE 报告的 model_slug。'));
     } else {
       body.append(el('div', 'yy-mum-time', new Date(turn.t).toLocaleTimeString('zh-CN', { hour12: false }) + ' 这一轮'));
       const dl = el('dl', 'yy-mum-dl');
@@ -238,7 +267,7 @@
       #${HOST_ID} .yy-mum-reqval { opacity: .72; }
       #${HOST_ID} .yy-mum-runval { opacity: .95; }
 
-      /* 被重路由时执行行自己就该跳出来，不用只靠右边那个小符号 */
+      /* 请求标识与 STE 标识不一致时，让 run 行直接突出显示。 */
       #${HOST_ID} .yy-mum-runval[data-code="diff"] { color: #c47a1c; font-weight: 700; opacity: 1; }
       #${HOST_ID}[data-theme="dark"] .yy-mum-runval[data-code="diff"] { color: #efa845; }
       #${HOST_ID} .yy-mum-runval[data-code="waiting"],
@@ -376,6 +405,7 @@
   }
 
   function attach() {
+    if (showModelRoute !== true) return false;
     if (block?.isConnected) return true;
     const host = document.getElementById(HOST_ID);
     if (!host) return false;
@@ -393,8 +423,17 @@
     }
   });
 
+  try {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'sync' || !(DISPLAY_SETTINGS_KEY in changes)) return;
+      const saved = changes[DISPLAY_SETTINGS_KEY].newValue;
+      showModelRoute = saved?.showModelRoute !== false;
+      applyRouteSetting();
+    });
+  } catch {}
+
   const observer = new MutationObserver(() => { attach(); });
   observer.observe(document.documentElement, { subtree: true, childList: true });
   setInterval(attach, 2_000);
-  attach();
+  loadRouteSetting();
 })();
