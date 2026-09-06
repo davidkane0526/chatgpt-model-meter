@@ -34,6 +34,9 @@
   let settingsPanel = null;
   let settingsButton = null;
   let autoHideCloseTimer = 0;
+  const AUTO_HIDE_MARGIN = 5;
+  let lastPointerX = null;
+  let lastPointerY = null;
   let currentSettings = { ...DEFAULT_SETTINGS };
 
   function clamp(value, min, max) {
@@ -329,20 +332,20 @@
           opacity 120ms ease, background-color 120ms ease, color 120ms ease;
       }
 
-      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open) {
+      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open):not(.yy-cum-hover-buffer) {
         width: 112px;
         padding: 7px 10px;
       }
 
-      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open) .yy-cum-header {
+      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open):not(.yy-cum-hover-buffer) .yy-cum-header {
         min-height: 24px;
         margin-bottom: 0;
       }
 
-      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open) > .yy-cum-row,
-      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open) > .yy-mum-block,
-      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open) .yy-cum-settings-button,
-      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open) > .yy-cum-settings-panel {
+      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open):not(.yy-cum-hover-buffer) > .yy-cum-row,
+      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open):not(.yy-cum-hover-buffer) > .yy-mum-block,
+      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open):not(.yy-cum-hover-buffer) .yy-cum-settings-button,
+      #${WIDGET_ID}[data-auto-hide="true"]:not(:hover):not(.yy-cum-settings-open):not(.yy-cum-hover-buffer) > .yy-cum-settings-panel {
         display: none !important;
       }
 
@@ -621,23 +624,65 @@
       autoHideCloseTimer = 0;
     };
 
+    const pointNearRect = (rect, x, y, margin = AUTO_HIDE_MARGIN) =>
+      Number.isFinite(x) && Number.isFinite(y) &&
+      x >= rect.left - margin && x <= rect.right + margin &&
+      y >= rect.top - margin && y <= rect.bottom + margin;
+
+    const pointerNearExpandedWidget = () => {
+      if (!Number.isFinite(lastPointerX) || !Number.isFinite(lastPointerY)) return false;
+      if (pointNearRect(root.getBoundingClientRect(), lastPointerX, lastPointerY)) return true;
+      if (settingsPanel && !settingsPanel.hidden &&
+          pointNearRect(settingsPanel.getBoundingClientRect(), lastPointerX, lastPointerY)) return true;
+      return false;
+    };
+
     const scheduleAutoHideClose = () => {
       if (!currentSettings.defaultHidden || !settingsPanel || settingsPanel.hidden) return;
       cancelAutoHideClose();
       autoHideCloseTimer = setTimeout(() => {
         autoHideCloseTimer = 0;
-        // 给鼠标穿过主卡片和设置面板之间的视觉缝隙留一点容错。
-        if (root.matches(':hover') || settingsPanel.matches(':hover')) return;
+        // 视觉缝隙 + 外沿 5px 都算作仍在面板附近。
+        if (root.matches(':hover') || settingsPanel.matches(':hover') || pointerNearExpandedWidget()) return;
         settingsPanel.hidden = true;
         settingsButton?.setAttribute('aria-expanded', 'false');
         root.classList.remove('yy-cum-settings-open');
+        root.classList.remove('yy-cum-hover-buffer');
       }, 180);
     };
 
-    root.addEventListener('mouseleave', scheduleAutoHideClose);
-    root.addEventListener('mouseenter', cancelAutoHideClose);
+    root.addEventListener('mouseleave', () => {
+      if (!currentSettings.defaultHidden) return;
+      // CSS 原本会在 :hover 消失的瞬间立刻缩回。先挂住展开态，
+      // 等指针真正离开 5px 缓冲区再释放。
+      root.classList.add('yy-cum-hover-buffer');
+      if (!settingsPanel.hidden) scheduleAutoHideClose();
+    });
+    root.addEventListener('mouseenter', () => {
+      cancelAutoHideClose();
+      root.classList.remove('yy-cum-hover-buffer');
+    });
     settingsPanel.addEventListener('mouseenter', cancelAutoHideClose);
     settingsPanel.addEventListener('mouseleave', scheduleAutoHideClose);
+
+    document.addEventListener('pointermove', (event) => {
+      lastPointerX = event.clientX;
+      lastPointerY = event.clientY;
+      if (!currentSettings.defaultHidden) {
+        root.classList.remove('yy-cum-hover-buffer');
+        return;
+      }
+
+      if (root.matches(':hover') || settingsPanel.matches(':hover') || pointerNearExpandedWidget()) {
+        cancelAutoHideClose();
+        return;
+      }
+
+      if (root.classList.contains('yy-cum-hover-buffer')) {
+        root.classList.remove('yy-cum-hover-buffer');
+      }
+      if (!settingsPanel.hidden && !autoHideCloseTimer) scheduleAutoHideClose();
+    }, { passive: true });
 
     (document.body || document.documentElement).appendChild(root);
     widget = root;
