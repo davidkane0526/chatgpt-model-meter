@@ -1,0 +1,68 @@
+chatgpt-model-meter v0.8.2-mod test report
+
+[syntax]
+PASS bridge.js
+PASS model.js
+PASS widget.js
+PASS model-labels.js
+PASS model-ui.js
+
+[model labels]
+PASS Plus standard Chat thinking -> Sol
+PASS Plus standard Chat high effort -> Sol High
+PASS Free standard Chat thinking -> Luna
+PASS Go instant -> Luna
+PASS Work generic family remains unresolved
+PASS Explicit Sol wins in Work
+PASS Explicit Terra wins in Work
+PASS UI label can identify Luna
+PASS GPT-5.5 mini readable
+PASS GPT-6 Astra Work readable
+
+All model-label tests passed
+
+[model detection]
+[1] explicit server_ste_metadata
+PASS requested
+PASS explicit STE wins
+PASS message slug remains echo
+PASS source
+PASS priority
+[2] event-name-only STE
+PASS event name recognized
+[3] nested legacy STE
+PASS nested exec
+PASS nested echo
+[4] ordinary message metadata must NOT become STE
+PASS no false exec from message metadata
+PASS echo retained
+PASS closed without STE
+[5] strong unnamed STE fallback
+PASS fallback exec
+PASS fallback source
+PASS fallback marked approximate
+[6] explicit evidence overrides lower-confidence fallback
+PASS high priority replaces fallback
+PASS only top evidence remains
+[7] resolved_model_slug allowed only inside explicit STE
+PASS resolved fallback inside STE
+PASS resolved priority below model_slug
+[8] Work handoff + WebSocket association
+PASS handoff state
+PASS WS exec
+PASS WS transport
+[9] patch model slug stays echo unless patch path is STE
+PASS patch echo values
+PASS patch not exec
+[10] noise endpoints do not create turns
+PASS turn unchanged
+
+All tests passed
+
+[widget gestures]
+PASS mini tap restores panel on pointerup
+PASS mini drag stays minimized
+PASS pointer cancel does not restore
+PASS 5h compact summary uses remaining percent
+PASS 7d compact summary supports normal percentage
+All widget gesture tests passed

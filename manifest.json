@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "模型 · 额度监测 for ChatGPT",
-  "version": "0.7.4",
-  "description": "在 ChatGPT 网页左上角显示 5 小时 / 7 天剩余额度，并核对请求 model 与服务端 STE 报告的 model_slug 是否一致（chat 与 work 通用）。",
+  "version": "0.8.2",
+  "description": "在 ChatGPT 网页显示 Work / Codex 额度，并以更严格的 STE 证据识别模型路由；支持拖动、缩小额度胶囊与可读模型名称。",
   "minimum_chrome_version": "111",
   "content_scripts": [
     {
@@ -22,6 +22,7 @@
       ],
       "js": [
         "widget.js",
+        "model-labels.js",
         "model-ui.js"
       ],
       "run_at": "document_start",
@@ -30,5 +31,6 @@
   ],
   "permissions": [
     "storage"
-  ]
+  ],
+  "version_name": "0.8.2-mod"
 }
