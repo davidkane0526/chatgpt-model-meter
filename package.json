@@ -1,0 +1,9 @@
+{
+  "name": "chatgpt-model-meter",
+  "version": "0.9.0",
+  "private": true,
+  "scripts": {
+    "check": "node --check bridge.js && node --check model.js && node --check model-labels.js && node --check model-ui.js && node --check widget.js && node --check resilience.js",
+    "test": "npm run check && node tests/model-labels.test.cjs && node tests/model.test.cjs && node tests/widget-gesture.test.cjs && node tests/resilience.test.cjs"
+  }
+}
