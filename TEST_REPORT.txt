@@ -1,4 +1,8 @@
-chatgpt-model-meter v0.8.2-mod test report
+chatgpt-model-meter v0.9.0-mod test report
+
+GitHub Actions run: 34752168307
+Environment: Ubuntu 24.04 / Node.js 20.20.2
+Result: PASS
 
 [syntax]
 PASS bridge.js
@@ -6,6 +10,7 @@ PASS model.js
 PASS widget.js
 PASS model-labels.js
 PASS model-ui.js
+PASS resilience.js
 
 [model labels]
 PASS Plus standard Chat thinking -> Sol
@@ -57,7 +62,7 @@ PASS patch not exec
 [10] noise endpoints do not create turns
 PASS turn unchanged
 
-All tests passed
+All model detection tests passed
 
 [widget gestures]
 PASS mini tap restores panel on pointerup
@@ -65,4 +70,31 @@ PASS mini drag stays minimized
 PASS pointer cancel does not restore
 PASS 5h compact summary uses remaining percent
 PASS 7d compact summary supports normal percentage
+
 All widget gesture tests passed
+
+[resilience]
+PASS uses isolated resilience storage key
+PASS matches Chinese timeout text
+PASS matches English timeout text
+PASS does not match generic network error
+PASS default recovery text is continue
+PASS default recovery limit is three
+PASS default keepalive interval is four minutes
+PASS recovery text is capped at 40 chars
+PASS recovery delay lower bound is 500ms
+PASS recovery max upper bound is 10
+PASS keepalive upper bound is 30 minutes
+PASS recovery delay upper bound is 10s
+PASS invalid negative recovery max falls back then clamps safely
+PASS keepalive lower bound is one minute
+PASS retry can be found from aria-label only
+PASS node timeout detection uses visible text
+PASS fallback recovery text can be written into textarea-like composer
+
+All resilience tests passed
+
+Notes:
+- v0.9.0 resilience tests are zero-dependency regression tests executed against the production resilience.js source.
+- Runtime browser behavior still depends on ChatGPT DOM/UI structure; unit coverage guards the current timeout matching, Retry discovery, settings bounds and fallback composer insertion logic.
+- CI workflow was subsequently moved to Node.js 24 to remove the GitHub-hosted runner Node 20 deprecation warning.
