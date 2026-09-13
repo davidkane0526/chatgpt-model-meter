@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "模型 · 额度监测 for ChatGPT",
-  "version": "0.8.2",
-  "description": "在 ChatGPT 网页显示 Work / Codex 额度，并以更严格的 STE 证据识别模型路由；支持拖动、缩小额度胶囊与可读模型名称。",
+  "version": "0.9.0",
+  "description": "在 ChatGPT 网页显示 Work / Codex 额度与模型路由，并提供页面保活和消息发送超时自动恢复。",
   "minimum_chrome_version": "111",
   "content_scripts": [
     {
@@ -23,7 +23,8 @@
       "js": [
         "widget.js",
         "model-labels.js",
-        "model-ui.js"
+        "model-ui.js",
+        "resilience.js"
       ],
       "run_at": "document_start",
       "world": "ISOLATED"
@@ -32,5 +33,5 @@
   "permissions": [
     "storage"
   ],
-  "version_name": "0.8.2-mod"
+  "version_name": "0.9.0-mod"
 }
